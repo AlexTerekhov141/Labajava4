@@ -10,11 +10,11 @@
  */
 import java.util.*;
 
-
-class Elevator extends Thread { //Класс лифта
+// Класс, представляющий лифт, наследуется
+class Elevator extends Thread {
     private int currentFloor;
     private final int id;
-    private final List<Integer> requests = new LinkedList<>(); // Список заявок на этажи
+    private final List<Integer> requests = new LinkedList<>();
     private boolean movingUp = true;
 
 
@@ -23,23 +23,13 @@ class Elevator extends Thread { //Класс лифта
         this.currentFloor = startFloor;
     }
 
+
     public synchronized void addRequest(int floor) { // Метод для добавления новой заявки на этаж
         if (!requests.contains(floor)) {
             requests.add(floor);
-            Collections.sort(requests);
-            if (!movingUp) {
-                Collections.reverse(requests);
-            }
-            notify(); // Уведомляем поток
+            requests.sort((a, b) -> movingUp ? a - b : b - a);
+            notify();
         }
-    }
-
-
-    private synchronized int getNextRequest() throws InterruptedException { // Метод для получения следующей заявки из списка
-        while (requests.isEmpty()) {
-            wait();
-        }
-        return requests.remove(0);
     }
 
 
@@ -58,8 +48,9 @@ class Elevator extends Thread { //Класс лифта
                 movingUp = false;
             }
             System.out.println("Лифт " + id + " на этаже " + currentFloor);
+            checkForIntermediateStops(); // Проверяем промежуточные остановки
             try {
-                Thread.sleep(500); // Задержка для симуляции движения лифта
+                Thread.sleep(1100); // Задержка для симуляции движения лифта
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -67,11 +58,25 @@ class Elevator extends Thread { //Класс лифта
     }
 
 
-    public void run() {  // Основной метод потока лифта
+    private synchronized void checkForIntermediateStops() { // Метод для проверки промежуточных остановок
+        if (requests.contains(currentFloor)) {
+            System.out.println("Лифт " + id + " остановился на попутном этаже " + currentFloor);
+            requests.remove((Integer) currentFloor);
+        }
+    }
+
+
+    public void run() { // Основной метод потока лифта
         System.out.println("Лифт " + id + " готов к работе на этаже " + currentFloor);
         while (true) { // Бесконечный цикл для обработки заявок
             try {
-                int nextFloor = getNextRequest();
+                int nextFloor;
+                synchronized (this) {
+                    while (requests.isEmpty()) {
+                        wait();
+                    }
+                    nextFloor = requests.remove(0);
+                }
                 System.out.println("Лифт " + id + " направляется на этаж " + nextFloor);
                 moveToFloor(nextFloor);
             } catch (InterruptedException e) {
@@ -95,7 +100,7 @@ class RequestGenerator extends Thread { // Класс, генерирующий 
 
 
     public int generateRequest() {
-        return random.nextInt(totalFloors) + 1;
+        return random.nextInt(totalFloors) + 1; // Случайный этаж от 1 до totalFloors
     }
 
 
@@ -105,7 +110,7 @@ class RequestGenerator extends Thread { // Класс, генерирующий 
             System.out.println("Заявка на вызов лифта на этаж " + requestedFloor);
             assignElevator(requestedFloor);
             try {
-                Thread.sleep(2000); // Задержка между заявками
+                Thread.sleep(1000); // Задержка между заявками
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -126,7 +131,7 @@ class RequestGenerator extends Thread { // Класс, генерирующий 
             }
         }
 
-        // Добавление заявки в список лучшего лифта
+
         if (bestElevator != null) {
             bestElevator.addRequest(requestedFloor);
         }
@@ -136,7 +141,7 @@ class RequestGenerator extends Thread { // Класс, генерирующий 
 
 public class Main {
     public static void main(String[] args) {
-        int totalFloors = 9; // Общее количество этажей в здании
+        int totalFloors = 9;
 
         // Создание и запуск двух лифтов
         Elevator elevator1 = new Elevator(1, 4);
