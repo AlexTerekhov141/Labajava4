@@ -10,7 +10,7 @@
  */
 import java.util.*;
 
-// Класс, представляющий лифт, наследуется
+// Класс, представляющий лифт
 class Elevator extends Thread {
     private int currentFloor;
     private final int id;
